@@ -312,7 +312,7 @@ AS
 SELECT 
     g.Guest_ID,
     g.First_Name + ' ' + g.Last_Name AS Guest_Name,
-    g.City + ', ' + g.State AS Location,
+    g.City + ', ' + g.State AS Location,  
     COUNT(b.Booking_ID) AS Total_Stays,
     MIN(b.Check_In_Date) AS First_Visit,
     MAX(b.Check_Out_Date) AS Last_Visit,
@@ -586,14 +586,11 @@ AS
 BEGIN
     SET NOCOUNT ON;
     
-    -- Only proceed if there are affected records
     IF EXISTS (SELECT * FROM inserted)
     BEGIN
-        -- Open the symmetric key for encryption
         OPEN SYMMETRIC KEY GuestDataKey
         DECRYPTION BY CERTIFICATE GuestDataCert;
         
-        -- Update encrypted columns for inserted/updated records
         UPDATE g
         SET 
             Phone_Encrypted = CASE 
@@ -633,9 +630,8 @@ BEGIN
             END
         FROM GUEST g
         INNER JOIN inserted i ON g.Guest_ID = i.Guest_ID
-        LEFT JOIN deleted d ON i.Guest_ID = d.Guest_ID;  -- For UPDATE operations
+        LEFT JOIN deleted d ON i.Guest_ID = d.Guest_ID; 
         
-        -- Close the symmetric key
         CLOSE SYMMETRIC KEY GuestDataKey;
     END
 END;
