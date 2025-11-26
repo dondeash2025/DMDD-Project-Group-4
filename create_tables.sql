@@ -1,0 +1,262 @@
+CREATE DATABASE HotelManagementDB;
+GO
+
+USE HotelManagementDB;
+GO
+
+IF OBJECT_ID('dbo.BOOKING_AUDIT', 'U') IS NOT NULL DROP TABLE dbo.BOOKING_AUDIT;
+IF OBJECT_ID('dbo.MAINTENANCE_REQUEST', 'U') IS NOT NULL DROP TABLE dbo.MAINTENANCE_REQUEST;
+IF OBJECT_ID('dbo.ROOM_ASSIGNMENT', 'U') IS NOT NULL DROP TABLE dbo.ROOM_ASSIGNMENT;
+IF OBJECT_ID('dbo.TASK_ASSIGNMENT', 'U') IS NOT NULL DROP TABLE dbo.TASK_ASSIGNMENT;
+IF OBJECT_ID('dbo.TASK', 'U') IS NOT NULL DROP TABLE dbo.TASK;
+IF OBJECT_ID('dbo.SHIFT', 'U') IS NOT NULL DROP TABLE dbo.SHIFT;
+IF OBJECT_ID('dbo.STAFF', 'U') IS NOT NULL DROP TABLE dbo.STAFF;
+IF OBJECT_ID('dbo.FEEDBACK', 'U') IS NOT NULL DROP TABLE dbo.FEEDBACK;
+IF OBJECT_ID('dbo.[ORDER]', 'U') IS NOT NULL DROP TABLE dbo.[ORDER];
+IF OBJECT_ID('dbo.RESTAURANT_ORDER', 'U') IS NOT NULL DROP TABLE dbo.RESTAURANT_ORDER;
+IF OBJECT_ID('dbo.SERVICE_TRANSACTION', 'U') IS NOT NULL DROP TABLE dbo.SERVICE_TRANSACTION;
+IF OBJECT_ID('dbo.SERVICE', 'U') IS NOT NULL DROP TABLE dbo.SERVICE;
+IF OBJECT_ID('dbo.PAYMENT', 'U') IS NOT NULL DROP TABLE dbo.PAYMENT;
+IF OBJECT_ID('dbo.INVOICE_TAX', 'U') IS NOT NULL DROP TABLE dbo.INVOICE_TAX;
+IF OBJECT_ID('dbo.TAX', 'U') IS NOT NULL DROP TABLE dbo.TAX;
+IF OBJECT_ID('dbo.INVOICE', 'U') IS NOT NULL DROP TABLE dbo.INVOICE;
+IF OBJECT_ID('dbo.BOOKING_DISCOUNT', 'U') IS NOT NULL DROP TABLE dbo.BOOKING_DISCOUNT;
+IF OBJECT_ID('dbo.DISCOUNT', 'U') IS NOT NULL DROP TABLE dbo.DISCOUNT;
+IF OBJECT_ID('dbo.ROOM_BOOKING_ASSIGNMENT', 'U') IS NOT NULL DROP TABLE dbo.ROOM_BOOKING_ASSIGNMENT;
+IF OBJECT_ID('dbo.BOOKING', 'U') IS NOT NULL DROP TABLE dbo.BOOKING;
+IF OBJECT_ID('dbo.ROOM', 'U') IS NOT NULL DROP TABLE dbo.ROOM;
+IF OBJECT_ID('dbo.GUEST', 'U') IS NOT NULL DROP TABLE dbo.GUEST;
+GO
+
+CREATE TABLE GUEST (
+    Guest_ID INT IDENTITY(1,1) PRIMARY KEY,
+    First_Name VARCHAR(50) NOT NULL,
+    Last_Name VARCHAR(50) NOT NULL,
+    Age INT NOT NULL CHECK (Age >= 18),
+    Street VARCHAR(100),
+    City VARCHAR(50),
+    State VARCHAR(50),
+    Zip_Code VARCHAR(10),
+    Country VARCHAR(50),
+    Phone VARCHAR(20) UNIQUE,
+    Email VARCHAR(100),
+    Nationality VARCHAR(50)
+);
+
+CREATE TABLE ROOM (
+    Room_Number INT PRIMARY KEY,
+    Room_Type VARCHAR(20) NOT NULL CHECK (Room_Type IN ('Single', 'Double', 'Suite', 'Deluxe')),
+    Status VARCHAR(20) NOT NULL CHECK (Status IN ('Available', 'Occupied', 'Maintenance', 'OutOfService')),
+    Price DECIMAL(10,2) NOT NULL CHECK (Price > 0),
+    Capacity INT NOT NULL CHECK (Capacity > 0)
+);
+
+CREATE TABLE BOOKING (
+    Booking_ID INT IDENTITY(1,1) PRIMARY KEY,
+    Guest_ID INT NOT NULL,
+    Booking_Rate DECIMAL(10,2) NOT NULL CHECK (Booking_Rate > 0),
+    Check_In_Date DATE NOT NULL,
+    Check_Out_Date DATE NOT NULL,
+    Status VARCHAR(20) NOT NULL CHECK (Status IN ('Confirmed', 'CheckedIn', 'CheckedOut', 'Cancelled')),
+    FOREIGN KEY (Guest_ID) REFERENCES GUEST(Guest_ID),
+    CHECK (Check_Out_Date > Check_In_Date)
+);
+
+CREATE TABLE ROOM_BOOKING_ASSIGNMENT (
+    Room_Booking_ID INT IDENTITY(1,1) PRIMARY KEY,
+    Room_Number INT NOT NULL,
+    Booking_ID INT NOT NULL,
+    StartDate DATE NOT NULL,
+    EndDate DATE NOT NULL,
+    FOREIGN KEY (Room_Number) REFERENCES ROOM(Room_Number),
+    FOREIGN KEY (Booking_ID) REFERENCES BOOKING(Booking_ID),
+    UNIQUE (Room_Number, Booking_ID),
+    CHECK (EndDate >= StartDate)
+);
+
+CREATE TABLE DISCOUNT (
+    Discount_ID INT IDENTITY(1,1) PRIMARY KEY,
+    Discount_Name VARCHAR(100) NOT NULL,
+    Discount_Type VARCHAR(20) NOT NULL CHECK (Discount_Type IN ('Percentage', 'Fixed')),
+    Discount_Value DECIMAL(10,2) NOT NULL CHECK (Discount_Value > 0),
+    Valid_From DATE NOT NULL,
+    Valid_To DATE NOT NULL,
+    CHECK (Valid_To >= Valid_From)
+);
+
+CREATE TABLE BOOKING_DISCOUNT (
+    Booking_Discount_ID INT IDENTITY(1,1) PRIMARY KEY,
+    Booking_ID INT NOT NULL,
+    Discount_ID INT NOT NULL,
+    Applied_Value DECIMAL(10,2) NOT NULL CHECK (Applied_Value > 0),
+    FOREIGN KEY (Booking_ID) REFERENCES BOOKING(Booking_ID),
+    FOREIGN KEY (Discount_ID) REFERENCES DISCOUNT(Discount_ID)
+);
+
+
+CREATE TABLE INVOICE (
+    Invoice_ID INT IDENTITY(1,1) PRIMARY KEY,
+    Booking_ID INT NOT NULL,
+    Generated_Date DATE NOT NULL DEFAULT GETDATE(),
+    Total_Amount DECIMAL(10,2) NOT NULL CHECK (Total_Amount > 0),
+    FOREIGN KEY (Booking_ID) REFERENCES BOOKING(Booking_ID)
+);
+
+
+CREATE TABLE TAX (
+    Tax_ID INT IDENTITY(1,1) PRIMARY KEY,
+    Tax_Name VARCHAR(50) NOT NULL,
+    Tax_Rate DECIMAL(5,2) NOT NULL CHECK (Tax_Rate >= 0 AND Tax_Rate <= 100),
+    Description VARCHAR(200)
+);
+
+CREATE TABLE INVOICE_TAX (
+    Invoice_Tax_ID INT IDENTITY(1,1) PRIMARY KEY,
+    Invoice_ID INT NOT NULL,
+    Tax_ID INT NOT NULL, 
+    Tax_Amount DECIMAL(10,2) NOT NULL CHECK (Tax_Amount >= 0), 
+    FOREIGN KEY (Invoice_ID) REFERENCES INVOICE(Invoice_ID),
+    FOREIGN KEY (Tax_ID) REFERENCES TAX(Tax_ID)
+);
+
+CREATE TABLE PAYMENT (
+    Payment_ID INT IDENTITY(1,1) PRIMARY KEY,
+    Invoice_ID INT NOT NULL,
+    Payment_Type VARCHAR(20) NOT NULL CHECK (Payment_Type IN ('Cash', 'CreditCard', 'DebitCard', 'Online', 'UPI')),
+    Amount DECIMAL(10,2) NOT NULL CHECK (Amount > 0),
+    Payment_Date DATETIME NOT NULL DEFAULT GETDATE(),
+    Payment_Status VARCHAR(20) NOT NULL CHECK (Payment_Status IN ('Pending', 'Completed', 'Failed', 'Refunded')),
+    FOREIGN KEY (Invoice_ID) REFERENCES INVOICE(Invoice_ID)
+);
+
+
+
+CREATE TABLE SERVICE (
+    Service_ID INT IDENTITY(1,1) PRIMARY KEY,
+    Service_Name VARCHAR(100) NOT NULL,
+    Service_Description VARCHAR(200),
+    Price DECIMAL(10,2) NOT NULL CHECK (Price > 0), 
+    Category VARCHAR(50)
+);
+
+
+CREATE TABLE SERVICE_TRANSACTION (
+    Transaction_ID INT IDENTITY(1,1) PRIMARY KEY,
+    Booking_ID INT NOT NULL,
+    Service_ID INT NOT NULL,
+    Quantity INT NOT NULL CHECK (Quantity > 0) DEFAULT 1,
+    Total_Amount DECIMAL(10,2) NOT NULL CHECK (Total_Amount > 0),
+    Transaction_Date DATETIME NOT NULL DEFAULT GETDATE(),
+    FOREIGN KEY (Booking_ID) REFERENCES BOOKING(Booking_ID),
+    FOREIGN KEY (Service_ID) REFERENCES SERVICE(Service_ID)
+);
+
+
+CREATE TABLE RESTAURANT_ORDER (
+    Restaurant_Order_ID INT IDENTITY(1,1) PRIMARY KEY,                           
+    Guest_ID INT NOT NULL,
+    Booking_ID INT,
+    Order_Date DATETIME NOT NULL DEFAULT GETDATE(),
+    Total_Amount DECIMAL(10,2) NOT NULL CHECK (Total_Amount > 0),
+    FOREIGN KEY (Guest_ID) REFERENCES GUEST(Guest_ID),
+    FOREIGN KEY (Booking_ID) REFERENCES BOOKING(Booking_ID)
+);
+
+
+CREATE TABLE [ORDER] (       
+    Order_ID INT IDENTITY(1,1) PRIMARY KEY,
+    Restaurant_Order_ID INT NOT NULL,
+    Item_Name VARCHAR(100) NOT NULL,
+    Quantity INT NOT NULL CHECK (Quantity > 0),
+    Price DECIMAL(10,2) NOT NULL CHECK (Price > 0),
+    Total DECIMAL(10,2) NOT NULL CHECK (Total > 0),
+    FOREIGN KEY (Restaurant_Order_ID) REFERENCES RESTAURANT_ORDER(Restaurant_Order_ID)
+);
+
+
+
+
+CREATE TABLE FEEDBACK (
+    Feedback_ID INT IDENTITY(1,1) PRIMARY KEY,
+    Booking_ID INT NOT NULL,
+    Rating INT NOT NULL CHECK (Rating >= 1 AND Rating <= 5),
+    Comments VARCHAR(500),
+    Feedback_Date DATE NOT NULL DEFAULT GETDATE(),
+    FOREIGN KEY (Booking_ID) REFERENCES BOOKING(Booking_ID)
+);
+
+CREATE TABLE STAFF (
+    Staff_ID INT IDENTITY(1,1) PRIMARY KEY,
+    First_Name VARCHAR(50) NOT NULL,
+    Last_Name VARCHAR(50) NOT NULL,
+    Role VARCHAR(50) NOT NULL,
+    Status VARCHAR(20) NOT NULL CHECK (Status IN ('Active', 'Inactive', 'OnLeave'))
+);
+
+
+CREATE TABLE SHIFT (     
+Shift_ID INT IDENTITY(1,1) PRIMARY KEY,
+Staff_ID INT NOT NULL,
+Shift_Date DATE NOT NULL,
+Start_Time TIME NOT NULL,
+End_Time TIME NOT NULL,
+Shift_Type VARCHAR(20) NOT NULL CHECK (Shift_Type IN ('Morning', 'Evening', 'Night')),
+FOREIGN KEY (Staff_ID) REFERENCES STAFF(Staff_ID)
+);
+
+
+CREATE TABLE TASK (
+    Task_ID INT IDENTITY(1,1) PRIMARY KEY,
+    Description VARCHAR(200) NOT NULL,
+    Scheduled_Time DATETIME NOT NULL,
+    Status VARCHAR(20) NOT NULL CHECK (Status IN ('Pending', 'InProgress', 'Completed'))
+);
+
+
+CREATE TABLE TASK_ASSIGNMENT (
+    Task_Assignment_ID INT IDENTITY(1,1) PRIMARY KEY,
+    Task_ID INT NOT NULL,
+    Staff_ID INT NOT NULL,
+    Assigned_Date DATE NOT NULL DEFAULT GETDATE(),
+    Completion_Date DATE,
+    FOREIGN KEY (Task_ID) REFERENCES TASK(Task_ID),
+    FOREIGN KEY (Staff_ID) REFERENCES STAFF(Staff_ID)
+);
+
+
+CREATE TABLE ROOM_ASSIGNMENT (
+    Room_Assignment_ID INT IDENTITY(1,1) PRIMARY KEY,
+    Room_Number INT NOT NULL,
+    Staff_ID INT NOT NULL,
+    Assignment_Date DATE NOT NULL DEFAULT GETDATE(),
+    FOREIGN KEY (Room_Number) REFERENCES ROOM(Room_Number),
+    FOREIGN KEY (Staff_ID) REFERENCES STAFF(Staff_ID)
+);
+
+
+CREATE TABLE MAINTENANCE_REQUEST (
+    Request_ID INT IDENTITY(1,1) PRIMARY KEY,
+    Room_Number INT NOT NULL,
+    Staff_ID INT NOT NULL,
+    Description VARCHAR(200) NOT NULL,
+    Request_Date DATE NOT NULL DEFAULT GETDATE(),
+    Priority VARCHAR(20) NOT NULL CHECK (Priority IN ('Low', 'Medium', 'High', 'Critical')),
+    Status VARCHAR(20) NOT NULL CHECK (Status IN ('Pending', 'InProgress', 'Completed')),
+    Completion_Date DATE,
+    FOREIGN KEY (Room_Number) REFERENCES ROOM(Room_Number),
+    FOREIGN KEY (Staff_ID) REFERENCES STAFF(Staff_ID)
+);
+
+CREATE TABLE BOOKING_AUDIT (
+    Audit_ID INT IDENTITY(1,1) PRIMARY KEY,
+    Booking_ID INT,
+    Action_Type VARCHAR(10),
+    Action_Date DATETIME DEFAULT GETDATE(),
+    Action_By VARCHAR(100) DEFAULT SUSER_NAME(),
+    Old_Status VARCHAR(20),
+    New_Status VARCHAR(20),
+    Old_CheckIn DATE,
+    New_CheckIn DATE,
+    Old_CheckOut DATE,
+    New_CheckOut DATE
+);
